@@ -15,6 +15,32 @@ right_face = []
 left_face = []
 file_path = r'F:\work\python\team\blcok\data\original\aaa.pcd'  # 更新后的点云文件路径
 
+@jit
+def cut_points(pcd_filtered, plane_model,remove_above=False):
+    while True:
+        right_face_points = planar_cut_off(pcd_filtered, plane_model,remove_above)
+        if len(right_face_points.points) < 30000:
+            A, B, C, D = translate_plane(A, B, C, D, 0.01)
+            plane_model = [A, B, C, D]
+        else:
+            break
+def translate_plane(a, b, c, d, distance):
+    """
+    沿平面法向量方向平移平面。
+
+    参数:
+    a, b, c, d: 原平面方程 ax + by + cz + d = 0 的系数
+    distance: 平移距离，正值表示沿法向量方向，负值表示相反方向
+
+    返回:
+    新平面方程的系数 (a, b, c, d_new)
+    """
+    normal_vector = np.array([a, b, c])
+    norm = np.linalg.norm(normal_vector)  # 可以在函数外部计算并传入或者使用jit优化
+    d_new = d - distance * norm
+    return a, b, c, d_new
+
+
 # 用平面分割点云，排除不需要部分
 def planar_cut_off(pcd, plane_model, remove_above=True):
     """
@@ -425,9 +451,10 @@ if True:
 
     # Step 2.5：生成用于测量距离的背面平面点集
     if True:
-        # 左
-        A, B, C, D = left_face
-        plane_model = [A, B, C, D]
+        # 左后
+        A, B, C, D = right_face # 由于左后面拍摄不到，所以沿着左侧面的法向量方向，切割出左后面点集
+        plane_model = [A, B, C, D] # TODO
+
         left_face_points = planar_cut_off(pcd_filtered, plane_model, False)
         # 调试用：显示点云
         o3d.visualization.draw_geometries([left_face_points], window_name='left_face_points')
@@ -439,11 +466,15 @@ if True:
         # 调试用：显示点云
         o3d.visualization.draw_geometries([right_face_points], window_name='right_face_points')
 
-        # 底面
+        # 底边
+        # 由于底面拍摄不到，所以沿着顶面的法向量方向，切割出底边点集
+        # 顶面法向量：top_face，将顶面平面沿着其反向移动直至处在平面下面的点小于阈值N=30000
 
-        A, B, C, D = plane_model3 # TODO
+
+
+        A, B, C, D = 0,0,1,5 # 底面直接使用z=5平面
         plane_model = [A, B, C, D]
-        bottom_face_points = planar_cut_off(pcd_filtered, plane_model, True)
+        bottom_face_points = planar_cut_off(pcd_filtered, plane_model, False)
         # 调试用：显示点云
         o3d.visualization.draw_geometries([bottom_face_points], window_name='bottom_face_points')
 
@@ -457,3 +488,8 @@ if True:
 
     print("左侧面与右后面的距离，沿顶面测量：")
     cal_five_dis(left_face, top_face, right_face_points)
+
+## 以下是疑问
+'''
+1. 空间平面的法向量进行单位化时，d需要处理吗
+'''
