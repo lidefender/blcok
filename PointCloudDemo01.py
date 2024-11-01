@@ -12,7 +12,7 @@ surface_vectors = [top_vector, left_vector, right_vector] # Store surface vector
 top_face = []
 right_face = []
 left_face = []
-file_path = r'C:\Users\DELL\Desktop\A6.pcd'
+file_path = r'F:\work\python\team\blcok\data\original\A6.pcd'
 
 
 # 用平面分割点云 排除不需要部分
@@ -372,7 +372,7 @@ if True:
         plane_model = [A, B, C, D]  # Example: A horizontal plane at y = 1
         # Perform planar cut-off
         pcd_filtered = planar_cut_off(pcd, plane_model, False)
-
+        o3d.visualization.draw_geometries([pcd_filtered], window_name='Filtered Body00') # 显示过滤后的全部可用点
         # 底面三个点及裕量
         p1 = (-28.035, 57.862 + 5, 363.491)
         p2 = (-83.535, 39.338 + 5, 383.924)
@@ -383,7 +383,7 @@ if True:
         plane_model = [A, B, C, D]  # Example: A horizontal plane at y = 1
         # Perform the planar cut-off
         pcd_filtered = planar_cut_off(pcd_filtered, plane_model, True)
-
+        o3d.visualization.draw_geometries([pcd_filtered], window_name='Filtered Body01') # 显示过滤后的全部可用点
         # 右后三个点及裕量
         p1 = (-35.869, -76.708, 413.134 + 50)
         p2 = (11.503, -60.635, 395.618 + 50)
@@ -395,7 +395,7 @@ if True:
         # Perform the planar cut-off，输出过滤之后的点云对象 pcd_filtered
         pcd_filtered = planar_cut_off(pcd_filtered, plane_model, True)
 
-        o3d.visualization.draw_geometries([pcd_filtered], window_name='Filtered Body') # 显示过滤后的全部可用点
+        o3d.visualization.draw_geometries([pcd_filtered], window_name='Filtered Body02') # 显示过滤后的全部可用点
 
     # Step 2：拟合平面（准备检测立方体的角点）.plane_model 平面模型；inlier 该平面的内点索引
     if True:
