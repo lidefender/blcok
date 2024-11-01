@@ -490,51 +490,97 @@ if True:
     #o3d.visualization.draw_geometries([plane_model2_points])
     #o3d.visualization.draw_geometries([plane_model3_points])
 
-
-    # Step 2.5：生成 用于测量距离的 背面平面点集，作为测量背面边缘的终点
     if True:
-        # 平面 切分pcd_filtered
+        # 定义一个函数用于高亮显示选定的三个点
+        def highlight_selected_points(p1, p2, p3, original_pcd):
+            selected_points = np.array([p1, p2, p3])
+            selected_pcd = o3d.geometry.PointCloud()
+            selected_pcd.points = o3d.utility.Vector3dVector(selected_points)
+            # 设置颜色为红色
+            selected_pcd.paint_uniform_color([1, 0, 0])
+            # 可以选择放大点的大小，但Open3D默认不支持单独设置点大小
+            return selected_pcd
+
+
+        # 平面切分pcd_filtered
         # 左后三个点及裕量
         p1 = (-72.463, -59.748, 384.193 - 30)
         p2 = (-97.307, -20.437, 353.261 - 30)
         p3 = (-99.957, 20.620, 381.476 - 30)
         A, B, C, D = plane_from_points(p1, p2, p3)
-        # print(f"The equation of the plane is: {A}x + {B}y + {C}z + {D} = 0")
-        # Define the plane model parameters
-        plane_model = [A, B, C, D]  # Example: A horizontal plane at y = 1
-        # Perform planar cut-off
+        plane_model = [A, B, C, D]
         backleft_face_points = planar_cut_off(pcd_filtered, plane_model, True)
-        # 调试用：显示点云
-        o3d.visualization.draw_geometries([backleft_face_points], window_name='backleft_face_points')
 
-        # 平面 切分pcd_filtered
+        # 高亮显示选定的三个点
+        backleft_selected = highlight_selected_points(p1, p2, p3, pcd_filtered)
+
+        # 为backleft_face_points染色为绿色
+        backleft_face_points.paint_uniform_color([0, 1, 0])  # 绿色
+
+        # 获取剩余点云
+        pcd_rest_after_backleft = pcd_filtered.select_by_index(backleft_face_points.points, invert=True)
+        pcd_rest_after_backleft.paint_uniform_color([0, 0, 1])  # 蓝色
+
+        # 将染色后的点云与选定的点合并进行可视化
+        o3d.visualization.draw_geometries([
+            backleft_face_points,
+            pcd_rest_after_backleft,
+            backleft_selected
+        ], window_name='backleft_face_points')
+
+        # 平面切分pcd_filtered
         # 右后三个点及裕量
         p1 = (-35.869, -76.708, 413.134 - 30)
         p2 = (11.503, -60.635, 395.618 - 30)
         p3 = (35.021, -13.856, 412.638 - 30)
         A, B, C, D = plane_from_points(p1, p2, p3)
-        # print(f"The equation of the plane is: {A}x + {B}y + {C}z + {D} = 0")
-        # Define the plane model parameters
-        plane_model = [A, B, C, D]  # Example: A horizontal plane at y = 1
-        # Perform the planar cut-off，输出过滤之后的点云对象 pcd_filtered
+        plane_model = [A, B, C, D]
         backright_face_points = planar_cut_off(pcd_filtered, plane_model, False)
-        # 调试用：显示点云
-        o3d.visualization.draw_geometries([backright_face_points], window_name='backright_face_points')
 
-        # 平面 切分pcd_filtered
+        # 高亮显示选定的三个点
+        backright_selected = highlight_selected_points(p1, p2, p3, pcd_filtered)
+
+        # 为backright_face_points染色为绿色
+        backright_face_points.paint_uniform_color([0, 1, 0])  # 绿色
+
+        # 获取剩余点云
+        pcd_rest_after_backright = pcd_filtered.select_by_index(backright_face_points.points, invert=True)
+        pcd_rest_after_backright.paint_uniform_color([0, 0, 1])  # 蓝色
+
+        # 将染色后的点云与选定的点合并进行可视化
+        o3d.visualization.draw_geometries([
+            backright_face_points,
+            pcd_rest_after_backright,
+            backright_selected
+        ], window_name='backright_face_points')
+
+        # 平面切分pcd_filtered
         # 底面三个点及裕量
         p1 = (-28.035, 57.862 - 15, 363.491)
         p2 = (-83.535, 39.338 - 15, 383.924)
         p3 = (28.207, 19.614 - 15, 424.500)
         A, B, C, D = plane_from_points(p1, p2, p3)
-        # print(f"The equation of the plane is: {A}x + {B}y + {C}z + {D} = 0")
-        # Define the plane model parameters
-        plane_model = [A, B, C, D]  # Example: A horizontal plane at y = 1
-        # Perform the planar cut-off
+        plane_model = [A, B, C, D]
         bottom_face_points = planar_cut_off(pcd_filtered, plane_model, False)
-        # 调试用：显示点云
-        o3d.visualization.draw_geometries([bottom_face_points], window_name='bottom_face_points')
 
+        # 高亮显示选定的三个点
+        bottom_selected = highlight_selected_points(p1, p2, p3, pcd_filtered)
+
+        # 为bottom_face_points染色为绿色
+        bottom_face_points.paint_uniform_color([0, 1, 0])  # 绿色
+
+        # 获取剩余点云
+        pcd_rest_after_bottom = pcd_filtered.select_by_index(bottom_face_points.points, invert=True)
+        pcd_rest_after_bottom.paint_uniform_color([0, 0, 1])  # 蓝色
+
+        # 将染色后的点云与选定的点合并进行可视化
+        o3d.visualization.draw_geometries([
+            bottom_face_points,
+            pcd_rest_after_bottom,
+            bottom_selected
+        ], window_name='bottom_face_points')
+
+    # 获得背面用测量点云：backleft_face_points、backright_face_points、bottom_face_points - 点集对象
     # 获得背面用测量点云：backleft_face_points、backright_face_points、bottom_face_points - 点集对象
 
     # Step 3：找两平面交线、根据交线切分被测量、测量各组被测点距目标点的最大距离

@@ -128,8 +128,11 @@ def filter_points_by_distance(point_cloud, distances, threshold=2):
     返回:
         array: 符合条件的点集。
     """
+    # Convert point cloud and distances to numpy arrays (if they aren't already)
     point_cloud = np.array(point_cloud)
     distances = np.array(distances)
+
+    # Filter points where the distance is greater than the threshold
     filtered_points = point_cloud[distances <= threshold]
     return filtered_points
 
@@ -179,10 +182,15 @@ def calculate_span(point_cloud, direction):
     返回:
         tuple: (跨度, 投影值, 最大投影, 最小投影)
     """
+    # Normalize the direction vector
     direction = direction / np.linalg.norm(direction)
+
+    # Project each point in the point cloud onto the direction vector
     projections = np.dot(point_cloud, direction)
     span_max = np.max(projections)
     span_min = np.min(projections)
+
+    # Calculate the span (max projection - min projection)
     span = span_max - span_min
     return span, projections, span_max, span_min
 
@@ -198,16 +206,26 @@ def split_point_cloud_into_intervals(point_cloud, direction):
     返回:
         tuple: (分割后的点集列表, 区间范围列表)
     """
+    # Step 1: Calculate the span and projections
     span, projections, span_max, span_min = calculate_span(point_cloud, direction)
+
+    # Step 2: Define the centers of the intervals
     centers = span_min + [(n * span / 6) for n in range(1, 6)]
+
+    # Step 3: Define intervals around each center
     interval_length = 3
     intervals = [(center - interval_length / 2, center + interval_length / 2) for center in centers]
-    point_intervals = [[] for _ in range(len(intervals))]
+
+    # Step 4: Classify points into intervals
+    point_intervals = [[] for _ in range(len(intervals))]  # List to store points in each interval
+
     for i, proj in enumerate(projections):
+        # Check which interval the projected value falls into
         for j, (start, end) in enumerate(intervals):
             if start <= proj <= end:
                 point_intervals[j].append(point_cloud[i])
-                break
+                break  # Once a point is assigned to an interval, stop checking further intervals
+
     return point_intervals, intervals
 
 # 计算点云到平面的距离
@@ -232,30 +250,51 @@ def distances_to_plane(point_cloud, plane_model):
 
 # 计算五个位置的最大距离
 def cal_five_dis(origin, through, desti):
-    """
-    计算两个平面交线上的点到目标点云的最大距离。
-
-    参数:
-        origin (list): 被测表面平面模型 [A, B, C, D]。
-        through (list): 测量方向表面平面模型 [A, B, C, D]。
-        desti (open3d.geometry.PointCloud): 目标点云。
-
-    返回:
-        None
-    """
-    tmp_plane1 = origin  # 被测表面1
-    tmp_plane2 = through  # 测量方向表面
-    plane1 = (tmp_plane1[0], tmp_plane1[1], tmp_plane1[2], tmp_plane1[3])
-    plane2 = (tmp_plane2[0], tmp_plane2[1], tmp_plane2[2], tmp_plane2[3])
+    tmp_plane1 = origin # 被测表面1，只能是top_face left_face right_face
+    tmp_plane2 = through # 测量方向表面
+    plane1 = (tmp_plane1[0],tmp_plane1[1],tmp_plane1[2],tmp_plane1[3])
+    plane2 = (tmp_plane2[0],tmp_plane2[1],tmp_plane2[2],tmp_plane2[3])
+    # 使用“直线经过的点point + 直线的方向向量direction”表示一条直线
     point, direction = plane_intersection(plane1, plane2)
-    point_cloud = desti.points  # 目标点云
+    #print("Point on the intersection line:", point)
+    #print("Direction of the intersection line:", direction)
+
+    # Step 4：计算“点集”中的点到直线的距离 - 点集是一个平面，直线是两平面交线。用于提取 离相交轴比较近的点集。
+    point_cloud = desti.points # 被测表面2，只能是backleft_face_points backright_face_points bottom_face_points
+    #使用“直线经过的点point + 直线的方向向量direction”表示一条直线
+    # “直线经过的点point"。 A point on the line (from the previous example)
     line_point = point
+    # "直线的方向向量direction”。Direction of the line (from the previous example)
     line_direction = direction
-    distances = point_cloud_to_line_distances(point_cloud, line_point, line_direction)
+    # Calculate distances for each point in the point cloud
+    distances = point_cloud_to_line_distances(point_cloud, line_point, line_direction) # 暂时无用
+    # 调试用：显示各点至直线的距离
+    #for i, dist in enumerate(distances):
+    #    print(f"Distance from point {point_cloud[i]} to the line: {dist:.4f}")
+    #points_in_cylinder = filter_points_by_distance(point_cloud, distances, threshold = 20) # 暂时无用
+    # 调试用：显示圆柱体内的点云
+    #tmp_point_cloud = o3d.geometry.PointCloud()
+    #tmp_point_cloud.points = o3d.utility.Vector3dVector(points_in_cylinder)
+    #o3d.visualization.draw_geometries([tmp_point_cloud], window_name='Points in Cylinder')
+
+    #调试用：计算点云在指定方向的span的示例程序。span是总跨度，projections是各点在指定方向上的投影，span_max span_min 是投影最大值和最小值
+    #span, projections, span_max, span_min = calculate_span(points_in_cylinder, line_direction)
+    #print(f"Span of the point cloud in the given direction: {span}")
+
     point_intervals, intervals = split_point_cloud_into_intervals(point_cloud, line_direction)
+    #调试用： Output the points in each interval
+    #for i, interval_points in enumerate(point_intervals):
+    #    tmp_point_cloud = o3d.geometry.PointCloud()
+    #    tmp_point_cloud.points = o3d.utility.Vector3dVector(interval_points)
+    #    o3d.visualization.draw_geometries([tmp_point_cloud], window_name='Points in Interval')
+    #    print(f"Interval {i+1} (centered around {intervals[i][0] + 3/2:.2f}):")
+    #    print(np.array(interval_points))
+
+    # Calculate distances
     for intervalA in point_intervals:
         distances = distances_to_plane(intervalA, tmp_plane1)
         print('最大距离：', np.max(distances))
+
 
 # 直通滤波函数
 def pass_through_filter(pcd, z_min=-7, y_max=180):
@@ -293,29 +332,32 @@ if True:
     # Step 2：拟合平面（准备检测立方体的角点）
     # Step 2：拟合平面（准备检测立方体的角点）
     if True:
+        # 原始点集 pcd_filtered，剩余点集 pcd_rest，分出去的点集 plane_model1_points；
         # 拟合第一个平面
+        # Segments a plane in the point cloud using the RANSAC algorithm.
         plane_model1, inliers1 = pcd_filtered.segment_plane(distance_threshold=0.2, ransac_n=3, num_iterations=10000)
         print('Face-1 equation:', plane_model1)
         # 排除拟合到平面1的点
         pcd_rest = pcd_filtered.select_by_index(inliers1, invert=True)
         plane_model1_points = pcd_filtered.select_by_index(inliers1)
-        o3d.visualization.draw_geometries([pcd_rest], window_name='Face-1 Fitting')
+        # o3d.visualization.draw_geometries([pcd_rest], window_name='Face-1 Fitting')
         # 分类平面
         tmp_plane = plane_model1[:3]  # 仅取法向量部分
-        classification_index, adjusted_normal = classify_plane(tmp_plane)
-        if classification_index == 0 and not top_face:
-            top_face = [*adjusted_normal, plane_model1[3]]  # 保留原来的D值
-            top_face_points = plane_model1_points
-        elif classification_index == 1 and not left_face:
-            left_face = [*adjusted_normal, plane_model1[3]]
-            left_face_points = plane_model1_points
-        elif classification_index == 2 and not right_face:
-            right_face = [*adjusted_normal, plane_model1[3]]
-            right_face_points = plane_model1_points
+        tmp, tmp_plane = classify_plane(tmp_plane)
+
+        tmp_plane_points = plane_model1_points
+        if tmp == 0 and top_face == []:
+            top_face = tmp_plane
+            top_face_points = tmp_plane_points
+        elif tmp == 1 and left_face == []:
+            left_face = tmp_plane
+            left_face_points = tmp_plane_points
+        elif tmp == 2 and right_face == []:
+            right_face = tmp_plane
+            right_face_points = tmp_plane_points
         else:
             print("Classification Error")
             sys.exit()
-
         # 拟合第二个平面
         plane_model2, inliers2 = pcd_rest.segment_plane(distance_threshold=0.2, ransac_n=3, num_iterations=10000)
         print('Face-2 equation:', plane_model2)
@@ -323,17 +365,19 @@ if True:
         plane_model2_points = pcd_rest.select_by_index(inliers2)
         o3d.visualization.draw_geometries([pcd_rest2], window_name='Face-2 Fitting')
         # 分类平面
-        tmp_plane = plane_model2[:3]
-        classification_index, adjusted_normal = classify_plane(tmp_plane)
-        if classification_index == 0 and not top_face:
-            top_face = [*adjusted_normal, plane_model2[3]]
-            top_face_points = plane_model2_points
-        elif classification_index == 1 and not left_face:
-            left_face = [*adjusted_normal, plane_model2[3]]
-            left_face_points = plane_model2_points
-        elif classification_index == 2 and not right_face:
-            right_face = [*adjusted_normal, plane_model2[3]]
-            right_face_points = plane_model2_points
+        tmp_plane = plane_model2[:3]  # 仅取法向量部分
+        tmp, tmp_plane = classify_plane(tmp_plane)
+
+        tmp_plane_points = plane_model2_points
+        if tmp == 0 and top_face == []:
+            top_face = tmp_plane
+            top_face_points = tmp_plane_points
+        elif tmp == 1 and left_face == []:
+            left_face = tmp_plane
+            left_face_points = tmp_plane_points
+        elif tmp == 2 and right_face == []:
+            right_face = tmp_plane
+            right_face_points = tmp_plane_points
         else:
             print("Classification Error")
             sys.exit()
@@ -345,17 +389,19 @@ if True:
         plane_model3_points = pcd_rest2.select_by_index(inliers3)
         o3d.visualization.draw_geometries([pcd_rest3], window_name='Face-3 Fitting')
         # 分类平面
-        tmp_plane = plane_model3[:3]
-        classification_index, adjusted_normal = classify_plane(tmp_plane)
-        if classification_index == 0 and not top_face:
-            top_face = [*adjusted_normal, plane_model3[3]]
-            top_face_points = plane_model3_points
-        elif classification_index == 1 and not left_face:
-            left_face = [*adjusted_normal, plane_model3[3]]
-            left_face_points = plane_model3_points
-        elif classification_index == 2 and not right_face:
-            right_face = [*adjusted_normal, plane_model3[3]]
-            right_face_points = plane_model3_points
+        tmp_plane = plane_model3[:3]  # 仅取法向量部分
+        tmp, tmp_plane = classify_plane(tmp_plane)
+
+        tmp_plane_points = plane_model3_points
+        if tmp == 0 and top_face == []:
+            top_face = tmp_plane
+            top_face_points = tmp_plane_points
+        elif tmp == 1 and left_face == []:
+            left_face = tmp_plane
+            left_face_points = tmp_plane_points
+        elif tmp == 2 and right_face == []:
+            right_face = tmp_plane
+            right_face_points = tmp_plane_points
         else:
             print("Classification Error")
             sys.exit()
@@ -363,17 +409,31 @@ if True:
         print('Top Face equation:', top_face)
         print('Left Face equation:', left_face)
         print('Right Face equation:', right_face)
+        # 当前总结：
+        # 得到3个集总参数的虚拟平面：top_face、left_face、right_face - 平面模型ABCD；及对应点集对象top_face_points、left_face_points...
+        # 切除多余点后的 总有效点集：pcd_filtered - 点集对象
+        # 暂存的原始输出平面及其点集：（以下这3个平面分别对应了top_face、left_face、right_face）
+        #   plane_model1 - 平面1模型ABCD, inliers1 - 索引（无用），plane_model1_points - 点集对象；
+        #   plane_model2 - 平面2模型ABCD, inliers2 - 索引（无用），plane_model2_points - 点集对象；
+        #   plane_model3 - 平面3模型ABCD, inliers3 - 索引（无用），plane_model3_points - 点集对象；
+        # 剩余点集：pcd_rest3 - 点集对象
+
+        # 调试用：可视化拟合出的3个平面所包含的点集
+        # o3d.visualization.draw_geometries([plane_model1_points])
+        # o3d.visualization.draw_geometries([plane_model2_points])
+        # o3d.visualization.draw_geometries([plane_model3_points])
+
     # Step 2.5：生成用于测量距离的背面平面点集
     if True:
-        # 左后三个点及裕量
-        A, B, C, D = plane_model1
+        # 左
+        A, B, C, D = left_face
         plane_model = [A, B, C, D]
         left_face_points = planar_cut_off(pcd_filtered, plane_model, False)
         # 调试用：显示点云
         o3d.visualization.draw_geometries([left_face_points], window_name='left_face_points')
 
         # 右后
-        A, B, C, D = plane_model2
+        A, B, C, D = right_face
         plane_model = [A, B, C, D]
         right_face_points = planar_cut_off(pcd_filtered, plane_model, True)
         # 调试用：显示点云
@@ -381,7 +441,7 @@ if True:
 
         # 底面
 
-        A, B, C, D = plane_model3
+        A, B, C, D = plane_model3 # TODO
         plane_model = [A, B, C, D]
         bottom_face_points = planar_cut_off(pcd_filtered, plane_model, True)
         # 调试用：显示点云
