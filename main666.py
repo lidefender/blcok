@@ -136,18 +136,36 @@ def filter_points_by_distance(point_cloud, distances, threshold=2):
 # 分类平面
 def classify_plane(plane_model):
     """
-    根据平面法向量将平面分类为顶面、左面或右面。
+    根据平面法向量将平面分类为顶面、左面或右面，并调整法向量方向与预定义的surface_vectors同向。
 
     参数:
         plane_model (array-like): 平面法向量 [A, B, C]。
 
     返回:
-        int: 分类结果的索引（0: 顶面, 1: 左面, 2: 右面）。
+        tuple: (分类结果的索引（0: 顶面, 1: 左面, 2: 右面）, 调整后的法向量 [A, B, C])。
     """
-    plane_model = plane_model / np.linalg.norm(plane_model)
-    dot_products = [np.dot(plane_model, surface_vector) for surface_vector in surface_vectors]
+    # 归一化法向量
+    normalized_plane = plane_model / np.linalg.norm(plane_model)
+
+    # 计算与预定义表面向量的点积
+    dot_products = [np.dot(normalized_plane, surface_vector) for surface_vector in surface_vectors]
+
+    # 取绝对值最大的点积对应的索引
     max_index = np.argmax(np.abs(dot_products))  # 使用绝对值忽略方向
-    return max_index
+
+    # 获取对应的surface_vector
+    corresponding_surface_vector = surface_vectors[max_index]
+
+    # 检查法向量是否与surface_vector同向
+    if np.dot(normalized_plane, corresponding_surface_vector) < 0:
+        # 如果点积为负，则反向法向量
+        adjusted_normal = -normalized_plane
+    else:
+        # 否则保持原方向
+        adjusted_normal = normalized_plane
+
+    return max_index, adjusted_normal
+
 
 # 计算点云在某方向上的跨度
 def calculate_span(point_cloud, direction):
@@ -273,29 +291,27 @@ if True:
         o3d.visualization.draw_geometries([pcd_filtered], window_name='Filtered Body')  # 显示过滤后的点云
 
     # Step 2：拟合平面（准备检测立方体的角点）
+    # Step 2：拟合平面（准备检测立方体的角点）
     if True:
         # 拟合第一个平面
-        plane_model1, inliers1 = pcd_filtered.segment_plane(distance_threshold=0.1, ransac_n=3, num_iterations=10000)
-        # TODO 进行精细拟合
-
+        plane_model1, inliers1 = pcd_filtered.segment_plane(distance_threshold=0.2, ransac_n=3, num_iterations=10000)
         print('Face-1 equation:', plane_model1)
         # 排除拟合到平面1的点
         pcd_rest = pcd_filtered.select_by_index(inliers1, invert=True)
         plane_model1_points = pcd_filtered.select_by_index(inliers1)
         o3d.visualization.draw_geometries([pcd_rest], window_name='Face-1 Fitting')
         # 分类平面
-        tmp_plane = plane_model1
-        tmp_plane_points = plane_model1_points
-        tmp = classify_plane(tmp_plane[:3])
-        if tmp == 0 and not top_face:
-            top_face = tmp_plane
-            top_face_points = tmp_plane_points
-        elif tmp == 1 and not left_face:
-            left_face = tmp_plane
-            left_face_points = tmp_plane_points
-        elif tmp == 2 and not right_face:
-            right_face = tmp_plane
-            right_face_points = tmp_plane_points
+        tmp_plane = plane_model1[:3]  # 仅取法向量部分
+        classification_index, adjusted_normal = classify_plane(tmp_plane)
+        if classification_index == 0 and not top_face:
+            top_face = [*adjusted_normal, plane_model1[3]]  # 保留原来的D值
+            top_face_points = plane_model1_points
+        elif classification_index == 1 and not left_face:
+            left_face = [*adjusted_normal, plane_model1[3]]
+            left_face_points = plane_model1_points
+        elif classification_index == 2 and not right_face:
+            right_face = [*adjusted_normal, plane_model1[3]]
+            right_face_points = plane_model1_points
         else:
             print("Classification Error")
             sys.exit()
@@ -307,18 +323,17 @@ if True:
         plane_model2_points = pcd_rest.select_by_index(inliers2)
         o3d.visualization.draw_geometries([pcd_rest2], window_name='Face-2 Fitting')
         # 分类平面
-        tmp_plane = plane_model2
-        tmp_plane_points = plane_model2_points
-        tmp = classify_plane(tmp_plane[:3])
-        if tmp == 0 and not top_face:
-            top_face = tmp_plane
-            top_face_points = tmp_plane_points
-        elif tmp == 1 and not left_face:
-            left_face = tmp_plane
-            left_face_points = tmp_plane_points
-        elif tmp == 2 and not right_face:
-            right_face = tmp_plane
-            right_face_points = tmp_plane_points
+        tmp_plane = plane_model2[:3]
+        classification_index, adjusted_normal = classify_plane(tmp_plane)
+        if classification_index == 0 and not top_face:
+            top_face = [*adjusted_normal, plane_model2[3]]
+            top_face_points = plane_model2_points
+        elif classification_index == 1 and not left_face:
+            left_face = [*adjusted_normal, plane_model2[3]]
+            left_face_points = plane_model2_points
+        elif classification_index == 2 and not right_face:
+            right_face = [*adjusted_normal, plane_model2[3]]
+            right_face_points = plane_model2_points
         else:
             print("Classification Error")
             sys.exit()
@@ -330,18 +345,17 @@ if True:
         plane_model3_points = pcd_rest2.select_by_index(inliers3)
         o3d.visualization.draw_geometries([pcd_rest3], window_name='Face-3 Fitting')
         # 分类平面
-        tmp_plane = plane_model3
-        tmp_plane_points = plane_model3_points
-        tmp = classify_plane(tmp_plane[:3])
-        if tmp == 0 and not top_face:
-            top_face = tmp_plane
-            top_face_points = tmp_plane_points
-        elif tmp == 1 and not left_face:
-            left_face = tmp_plane
-            left_face_points = tmp_plane_points
-        elif tmp == 2 and not right_face:
-            right_face = tmp_plane
-            right_face_points = tmp_plane_points
+        tmp_plane = plane_model3[:3]
+        classification_index, adjusted_normal = classify_plane(tmp_plane)
+        if classification_index == 0 and not top_face:
+            top_face = [*adjusted_normal, plane_model3[3]]
+            top_face_points = plane_model3_points
+        elif classification_index == 1 and not left_face:
+            left_face = [*adjusted_normal, plane_model3[3]]
+            left_face_points = plane_model3_points
+        elif classification_index == 2 and not right_face:
+            right_face = [*adjusted_normal, plane_model3[3]]
+            right_face_points = plane_model3_points
         else:
             print("Classification Error")
             sys.exit()
@@ -349,7 +363,6 @@ if True:
         print('Top Face equation:', top_face)
         print('Left Face equation:', left_face)
         print('Right Face equation:', right_face)
-
     # Step 2.5：生成用于测量距离的背面平面点集
     if True:
         # 左后三个点及裕量
