@@ -502,8 +502,11 @@ if True:
         A, B, C, D = right_face # 由于左后面拍摄不到，所以沿着左侧面的法向量方向，切割出左后面点集
         plane_model = [A, B, C, D-10] # TODO
 
-        plane_temp=create_plane(A,B,C,D, size=15)
-        o3d.visualization.draw_geometries([plane_temp,pcd_filtered], window_name='plane_temp')
+        plane_model = [A, B, C, D]
+        plane_temp1=create_plane(A,B,C,D, size=15)
+        plane_model_temp2=translate_plane(plane_model, 10)
+        plane_temp2=create_plane(plane_model_temp2[0],plane_model_temp2[1],plane_model_temp2[2],plane_model_temp2[3], size=15)
+        o3d.visualization.draw_geometries([plane_temp1,plane_temp2,pcd_filtered], window_name='bottom_face_points plane_temp')
 
         backleft_face_points,plane_model = cut_points(pcd_filtered, plane_model, distance=1, threshold=30000, remove_above=False)
         backleft_face_points.paint_uniform_color([0, 0, 0])  # 设置平面颜色
@@ -527,7 +530,14 @@ if True:
         # 右后
         A, B, C, D = left_face # 由于左后面拍摄不到，所以沿着左侧面的法向量方向，切割出左后面点集
         plane_model = [A, B, C, D-10] # TODO
-        backright_face_points,plane_model = cut_points(pcd_filtered, plane_model, distance=0.2,threshold=30000, remove_above=False)
+
+        plane_model = [A, B, C, D]
+        plane_temp1=create_plane(A,B,C,D, size=15)
+        plane_model_temp2=translate_plane(plane_model, 10)
+        plane_temp2=create_plane(plane_model_temp2[0],plane_model_temp2[1],plane_model_temp2[2],plane_model_temp2[3], size=15)
+        o3d.visualization.draw_geometries([plane_temp1,plane_temp2,pcd_filtered], window_name='bottom_face_points plane_temp')
+
+        backright_face_points,plane_model = cut_points(pcd_filtered, plane_model, distance=1,threshold=30000, remove_above=False)
 
         # 调试用：显示点云
         o3d.visualization.draw_geometries([backright_face_points], window_name='backright_face_points')
@@ -545,10 +555,10 @@ if True:
         A, B, C, D = top_face # 底面直接使用z=5平面
         plane_model = [A, B, C, D]
         plane_temp1=create_plane(A,B,C,D, size=15)
-        plane_model_temp2=translate_plane(plane_model, 5)
+        plane_model_temp2=translate_plane(plane_model, -5)
         plane_temp2=create_plane(plane_model_temp2[0],plane_model_temp2[1],plane_model_temp2[2],plane_model_temp2[3], size=15)
-        o3d.visualization.draw_geometries([plane_temp1,plane_temp2,pcd_filtered], window_name='bottom_face_points plane_temp')
-        bottom_face_points,plane_model = cut_points(pcd_filtered, plane_model,distance=0.2, threshold=50000, remove_above=False)
+        o3d.visualization.draw_geometries([plane_temp1,plane_temp2,pcd_filtered], window_name='bottom_face_points plane_temp333333333333')
+        bottom_face_points,plane_model = cut_points(pcd_filtered, plane_model,distance=-1, threshold=50000, remove_above=False)
 
         # 调试用：显示点云
         o3d.visualization.draw_geometries([bottom_face_points], window_name='bottom_face_points')
