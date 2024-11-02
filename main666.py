@@ -369,7 +369,7 @@ def cal_five_dis(origin, through, desti):
 
 
 # 直通滤波函数
-def pass_through_filter(pcd, z_min=-7, y_max=180):
+def pass_through_filter(pcd, z_min=-1.7, y_max=180):
     """
     使用直通滤波，仅保留 z >= z_min 且 y <= y_max 的点。
 
@@ -398,7 +398,7 @@ points = np.asarray(pcd.points)
 if True:
     # Step 1：直通滤波，仅保留 z >= -7 且 y <= 180
     if True:
-        pcd_filtered = pass_through_filter(pcd, z_min=-7, y_max=180)
+        pcd_filtered = pass_through_filter(pcd, z_min=-1.7, y_max=180)
         # o3d.visualization.draw_geometries([pcd_filtered], window_name='Filtered Body')  # 显示过滤后的点云
 
     # Step 2：拟合平面（准备检测立方体的角点）
