@@ -2,29 +2,46 @@
 import open3d as o3d
 import numpy as np
 import sys
+# from numba import jit
+
 
 # 归类平面用的指向向量，平面会被分为
 top_vector = np.array([0, 0, 1])       # 顶面向量 - 指向上
 left_vector = np.array([0, 1, 0])      # 左面向量 - 指向左
 right_vector = np.array([1, 0, 0])     # 右面向量 - 指向右
+
+# 归类平面用的指向向量，平面会被分为
+top_vector = np.array([0, 0, 1])       # 顶面向量 - 指向上
+left_vector =  np.array([1, 0, 0])    # 左面向量 - 指向左
+right_vector =  np.array([0, 1, 0])     # 右面向量 - 指向右
 surface_vectors = [top_vector, left_vector, right_vector]  # 存储表面向量列表，方便迭代
 
 # 虚拟平面点集，预备变量
 top_face = []
 right_face = []
 left_face = []
-file_path = r'F:\work\python\team\blcok\data\original\aaa.pcd'  # 更新后的点云文件路径
+file_path = r'data\original\aaa.pcd'  # 更新后的点云文件路径
 
-@jit
-def cut_points(pcd_filtered, plane_model,remove_above=False):
+# @jit
+def cut_points(pcd_filtered, plane_model,distance=0.05,threshold=30000,remove_above=False):
+
     while True:
-        right_face_points = planar_cut_off(pcd_filtered, plane_model,remove_above)
-        if len(right_face_points.points) < 30000:
-            A, B, C, D = translate_plane(A, B, C, D, 0.01)
-            plane_model = [A, B, C, D]
-        else:
+        points = planar_cut_off(pcd_filtered, plane_model,remove_above)
+        if len(points.points) < threshold:
             break
-def translate_plane(a, b, c, d, distance):
+
+
+        plane_model = translate_plane(plane_model, distance)
+
+        # debug
+        # A, B, C, D = plane_model
+        # plane_temp=create_plane(A,B,C,D, size=30)
+        # o3d.visualization.draw_geometries([plane_temp,pcd_filtered], window_name='plane_temp')
+
+        print(len(points.points))
+        print(plane_model)
+    return points,plane_model
+def translate_plane(plane_model, distance):
     """
     沿平面法向量方向平移平面。
 
@@ -35,12 +52,38 @@ def translate_plane(a, b, c, d, distance):
     返回:
     新平面方程的系数 (a, b, c, d_new)
     """
+    a, b, c, d = plane_model
     normal_vector = np.array([a, b, c])
     norm = np.linalg.norm(normal_vector)  # 可以在函数外部计算并传入或者使用jit优化
     d_new = d - distance * norm
-    return a, b, c, d_new
+    plane_model = [a, b, c, d_new]
+    return plane_model
 
 
+def create_plane(a, b, c, d, size=10):
+    half_size = size / 2
+    xx, yy = np.meshgrid(np.linspace(-half_size, half_size, 10), np.linspace(-half_size, half_size, 10))
+
+    # 计算 z 值
+    zz = (-a * xx - b * yy - d) / c
+
+    vertices = np.vstack((xx.flatten(), yy.flatten(), zz.flatten())).T
+
+    # 创建三角形的索引
+    triangles = []
+    for i in range(len(xx) - 1):
+        for j in range(len(yy) - 1):
+            triangles.append([i * len(yy) + j, (i + 1) * len(yy) + j, i * len(yy) + (j + 1)])
+            triangles.append([(i + 1) * len(yy) + j, (i + 1) * len(yy) + (j + 1), i * len(yy) + (j + 1)])
+    triangles = np.array(triangles)
+
+    # 创建平面网格
+    plane_mesh = o3d.geometry.TriangleMesh()
+    plane_mesh.vertices = o3d.utility.Vector3dVector(vertices)
+    plane_mesh.triangles = o3d.utility.Vector3iVector(triangles)
+    plane_mesh.compute_vertex_normals()
+    plane_mesh.paint_uniform_color([0.1, 0.9, 0.1])  # 设置平面颜色
+    return plane_mesh
 # 用平面分割点云，排除不需要部分
 def planar_cut_off(pcd, plane_model, remove_above=True):
     """
@@ -173,6 +216,9 @@ def classify_plane(plane_model):
     返回:
         tuple: (分类结果的索引（0: 顶面, 1: 左面, 2: 右面）, 调整后的法向量 [A, B, C])。
     """
+    [A, B, C] = plane_model[:3]
+    D=plane_model[3]
+    plane_model=[A,B,C]
     # 归一化法向量
     normalized_plane = plane_model / np.linalg.norm(plane_model)
 
@@ -188,10 +234,10 @@ def classify_plane(plane_model):
     # 检查法向量是否与surface_vector同向
     if np.dot(normalized_plane, corresponding_surface_vector) < 0:
         # 如果点积为负，则反向法向量
-        adjusted_normal = -normalized_plane
+        adjusted_normal = np.hstack([-normalized_plane,D])
     else:
         # 否则保持原方向
-        adjusted_normal = normalized_plane
+        adjusted_normal = np.hstack([normalized_plane,D])
 
     return max_index, adjusted_normal
 
@@ -353,7 +399,7 @@ if True:
     # Step 1：直通滤波，仅保留 z >= -7 且 y <= 180
     if True:
         pcd_filtered = pass_through_filter(pcd, z_min=-7, y_max=180)
-        o3d.visualization.draw_geometries([pcd_filtered], window_name='Filtered Body')  # 显示过滤后的点云
+        # o3d.visualization.draw_geometries([pcd_filtered], window_name='Filtered Body')  # 显示过滤后的点云
 
     # Step 2：拟合平面（准备检测立方体的角点）
     # Step 2：拟合平面（准备检测立方体的角点）
@@ -363,12 +409,13 @@ if True:
         # Segments a plane in the point cloud using the RANSAC algorithm.
         plane_model1, inliers1 = pcd_filtered.segment_plane(distance_threshold=0.2, ransac_n=3, num_iterations=10000)
         print('Face-1 equation:', plane_model1)
+        print("平面向量的模长为:", np.linalg.norm(plane_model1[:3]),"已单位化")
         # 排除拟合到平面1的点
         pcd_rest = pcd_filtered.select_by_index(inliers1, invert=True)
         plane_model1_points = pcd_filtered.select_by_index(inliers1)
         # o3d.visualization.draw_geometries([pcd_rest], window_name='Face-1 Fitting')
         # 分类平面
-        tmp_plane = plane_model1[:3]  # 仅取法向量部分
+        tmp_plane = plane_model1 # 仅取法向量部分
         tmp, tmp_plane = classify_plane(tmp_plane)
 
         tmp_plane_points = plane_model1_points
@@ -377,7 +424,7 @@ if True:
             top_face_points = tmp_plane_points
         elif tmp == 1 and left_face == []:
             left_face = tmp_plane
-            left_face_points = tmp_plane_points
+            backleft_face_points = tmp_plane_points
         elif tmp == 2 and right_face == []:
             right_face = tmp_plane
             right_face_points = tmp_plane_points
@@ -389,18 +436,18 @@ if True:
         print('Face-2 equation:', plane_model2)
         pcd_rest2 = pcd_rest.select_by_index(inliers2, invert=True)
         plane_model2_points = pcd_rest.select_by_index(inliers2)
-        o3d.visualization.draw_geometries([pcd_rest2], window_name='Face-2 Fitting')
+        # o3d.visualization.draw_geometries([pcd_rest2], window_name='Face-2 Fitting')
         # 分类平面
-        tmp_plane = plane_model2[:3]  # 仅取法向量部分
+        tmp_plane = plane_model2  # 仅取法向量部分
         tmp, tmp_plane = classify_plane(tmp_plane)
 
-        tmp_plane_points = plane_model2_points
+        tmp_plane_points = plane_model2_points # TODO 改为函数
         if tmp == 0 and top_face == []:
             top_face = tmp_plane
             top_face_points = tmp_plane_points
         elif tmp == 1 and left_face == []:
             left_face = tmp_plane
-            left_face_points = tmp_plane_points
+            backleft_face_points = tmp_plane_points
         elif tmp == 2 and right_face == []:
             right_face = tmp_plane
             right_face_points = tmp_plane_points
@@ -413,9 +460,9 @@ if True:
         print('Face-3 equation:', plane_model3)
         pcd_rest3 = pcd_rest2.select_by_index(inliers3, invert=True)
         plane_model3_points = pcd_rest2.select_by_index(inliers3)
-        o3d.visualization.draw_geometries([pcd_rest3], window_name='Face-3 Fitting')
+        # o3d.visualization.draw_geometries([pcd_rest3], window_name='Face-3 Fitting')
         # 分类平面
-        tmp_plane = plane_model3[:3]  # 仅取法向量部分
+        tmp_plane = plane_model3  # 仅取法向量部分
         tmp, tmp_plane = classify_plane(tmp_plane)
 
         tmp_plane_points = plane_model3_points
@@ -424,7 +471,7 @@ if True:
             top_face_points = tmp_plane_points
         elif tmp == 1 and left_face == []:
             left_face = tmp_plane
-            left_face_points = tmp_plane_points
+            backleft_face_points = tmp_plane_points
         elif tmp == 2 and right_face == []:
             right_face = tmp_plane
             right_face_points = tmp_plane_points
@@ -453,18 +500,41 @@ if True:
     if True:
         # 左后
         A, B, C, D = right_face # 由于左后面拍摄不到，所以沿着左侧面的法向量方向，切割出左后面点集
-        plane_model = [A, B, C, D] # TODO
+        plane_model = [A, B, C, D-10] # TODO
 
-        left_face_points = planar_cut_off(pcd_filtered, plane_model, False)
+        plane_temp=create_plane(A,B,C,D, size=15)
+        o3d.visualization.draw_geometries([plane_temp,pcd_filtered], window_name='plane_temp')
+
+        backleft_face_points,plane_model = cut_points(pcd_filtered, plane_model, distance=1, threshold=30000, remove_above=False)
+        backleft_face_points.paint_uniform_color([0, 0, 0])  # 设置平面颜色
         # 调试用：显示点云
-        o3d.visualization.draw_geometries([left_face_points], window_name='left_face_points')
+        # 选择并过滤点云
+        pcd_filtered_points = np.asarray(pcd_filtered.points)
+        # 找出不在 left_face_points 中的点
+        mask = np.all(np.isin(pcd_filtered_points, backleft_face_points), axis=1)
+        filtered_points = pcd_filtered_points[~mask]
+
+        # 创建过滤后的点云
+        filtered_pcd = o3d.geometry.PointCloud()
+        filtered_pcd.points = o3d.utility.Vector3dVector(filtered_points)
+
+        # 可视化过滤后的点云和左面点
+        o3d.visualization.draw_geometries([filtered_pcd, backleft_face_points], window_name='Left Face Points')
+        # o3d.visualization.draw_geometries([pcd_filtered.select_by_index(np.where(pcd_filtered==left_face_points),invert=True),left_face_points], window_name='left_face_points')
+
+
 
         # 右后
-        A, B, C, D = right_face
-        plane_model = [A, B, C, D]
-        right_face_points = planar_cut_off(pcd_filtered, plane_model, True)
+        A, B, C, D = left_face # 由于左后面拍摄不到，所以沿着左侧面的法向量方向，切割出左后面点集
+        plane_model = [A, B, C, D-10] # TODO
+        backright_face_points,plane_model = cut_points(pcd_filtered, plane_model, distance=0.2,threshold=30000, remove_above=False)
+
         # 调试用：显示点云
-        o3d.visualization.draw_geometries([right_face_points], window_name='right_face_points')
+        o3d.visualization.draw_geometries([backright_face_points], window_name='backright_face_points')
+
+        # right_face_points = planar_cut_off(pcd_filtered, left_face, True)
+        # 调试用：显示点云
+        # o3d.visualization.draw_geometries([right_face_points], window_name='right_face_points')
 
         # 底边
         # 由于底面拍摄不到，所以沿着顶面的法向量方向，切割出底边点集
@@ -472,9 +542,12 @@ if True:
 
 
 
-        A, B, C, D = 0,0,1,5 # 底面直接使用z=5平面
+        A, B, C, D = top_face # 底面直接使用z=5平面
         plane_model = [A, B, C, D]
-        bottom_face_points = planar_cut_off(pcd_filtered, plane_model, False)
+        plane_temp=create_plane(A,B,C,D, size=15)
+        o3d.visualization.draw_geometries([plane_temp,pcd_filtered], window_name='plane_temp')
+        bottom_face_points,plane_model = cut_points(pcd_filtered, plane_model,distance=0.2, threshold=50000, remove_above=False)
+
         # 调试用：显示点云
         o3d.visualization.draw_geometries([bottom_face_points], window_name='bottom_face_points')
 

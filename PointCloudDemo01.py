@@ -12,7 +12,7 @@ surface_vectors = [top_vector, left_vector, right_vector] # Store surface vector
 top_face = []
 right_face = []
 left_face = []
-file_path = r'F:\work\python\team\blcok\data\original\A6.pcd'
+file_path = r'data\original\A6.pcd'
 
 
 # 用平面分割点云 排除不需要部分
@@ -499,6 +499,9 @@ if True:
         p2 = (-97.307, -20.437, 353.261 - 30)
         p3 = (-99.957, 20.620, 381.476 - 30)
         A, B, C, D = plane_from_points(p1, p2, p3)
+
+
+
         # print(f"The equation of the plane is: {A}x + {B}y + {C}z + {D} = 0")
         # Define the plane model parameters
         plane_model = [A, B, C, D]  # Example: A horizontal plane at y = 1
