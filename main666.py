@@ -544,8 +544,10 @@ if True:
 
         A, B, C, D = top_face # 底面直接使用z=5平面
         plane_model = [A, B, C, D]
-        plane_temp=create_plane(A,B,C,D, size=15)
-        o3d.visualization.draw_geometries([plane_temp,pcd_filtered], window_name='plane_temp')
+        plane_temp1=create_plane(A,B,C,D, size=15)
+        plane_model_temp2=translate_plane(plane_model, 5)
+        plane_temp2=create_plane(plane_model_temp2[0],plane_model_temp2[1],plane_model_temp2[2],plane_model_temp2[3], size=15)
+        o3d.visualization.draw_geometries([plane_temp1,plane_temp2,pcd_filtered], window_name='bottom_face_points plane_temp')
         bottom_face_points,plane_model = cut_points(pcd_filtered, plane_model,distance=0.2, threshold=50000, remove_above=False)
 
         # 调试用：显示点云
