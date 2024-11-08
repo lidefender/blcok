@@ -18,12 +18,27 @@ def accessBinary(img, threshold=128):
     img = accessPiexl(img)
 
     cv2.imshow('accessPiexl', img)
-    cv2.waitKey(0)
+    cv2.waitKey(300)
 
     # 边缘膨胀，不加也可以
-    kernel = np.ones((3, 3), np.uint8)
+    kernel = np.ones((5, 5), np.uint8)
     img = cv2.dilate(img, kernel, iterations=1)
-    _, img = cv2.threshold(img, threshold, 0, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    # 使用中间部分确定二值化阈值并传出,因为中间部分极大概率出现了字符
+    img_threshold=crop_center(img,50,60)
+    cv2.imwrite('data/img/img_threshold_crop.jpg', img_threshold)
+    threshold, _ = cv2.threshold(img_threshold, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    print('threshold:', threshold)
+
+
+    # 二值化
+    _, img = cv2.threshold(img, threshold, 255, cv2.THRESH_BINARY)
+
+    #通过img判断阈值成功，若为全黑或者全白则阈值判断失败，并引出异常
+    if np.sum(img) == 0 or np.sum(img) == img.shape[0]*img.shape[1]*255:
+        raise Exception('Threshold Error')
+    
+
+
     return img
 
 
